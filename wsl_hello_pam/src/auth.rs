@@ -65,6 +65,7 @@ fn get_user(pamh: *mut pam_handle_t, prompt: Option<&str>) -> Result<Cow<str>, i
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum ConfigError {
     Io(io::Error),
     Toml(toml::de::Error),
@@ -126,6 +127,7 @@ fn get_win_mnt() -> Result<String, ConfigError> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum HelloAuthenticationError {
     GetUserError(i32),
     ConfigError(ConfigError),
@@ -232,7 +234,7 @@ fn authenticate_via_hello(pamh: *mut pam_handle_t) -> Result<i32, HelloAuthentic
     fs::remove_file(challenge_tmpfile_path)?;
 
     match auth_res.status.code() {
-        Some(code) if code == 0 => { /* Success */ }
+        Some(0) => { /* Success */ }
         Some(_) => {
             return Err(HelloAuthenticationError::HelloAuthenticationFail(
                 String::from_utf8(auth_res.stdout)
