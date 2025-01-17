@@ -75,7 +75,11 @@ fn main() {
     };
 
     if let Err(e) = result() {
-        println!("Error: {}", e);
+        if let FailureReason::Other(e) = e {
+            println!("Error: {}", e.message());
+        } else {
+            println!("Error: {}", e);
+        }
 
         if prompt_to_exit {
             println!("Hit Enter key to terminate...");
