@@ -75,8 +75,8 @@ fn main() {
     };
 
     if let Err(e) = result() {
-        if let FailureReason::Other(e) = e {
-            println!("Error: {}", e.message());
+        if let FailureReason::Other(ref err) = e {
+            println!("Error: {}", err.message());
         } else {
             println!("Error: {}", e);
         }
