@@ -9,13 +9,11 @@ all: build/pam_wsl_hello.so build/WindowsHelloBridge.exe
 build/pam_wsl_hello.so: | build
 # Build the PAM lib from Linux
 	cargo build --release -p wsl_hello_pam
-	strip target/release/libpam_wsl_hello.so
 	cp ./target/release/libpam_wsl_hello.so build/pam_wsl_hello.so
 
 build/WindowsHelloBridge.exe: | build
 # Build the authenticator from Windows
 	$(WIN_CARGO) build -p win_hello_bridge --release
-	strip target/release/WindowsHelloBridge.exe
 	cp ./target/release/WindowsHelloBridge.exe ./build
 
 build:
