@@ -86,12 +86,63 @@ jobs:
           path: build/WindowsHelloBridge.exe
           if-no-files-found: error
 
+  build-pam-module-aarch64:
+    name: "Build PAM module (AArch64)"
+
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Enable Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install libpam
+        run: sudo apt-get install libpam0g-dev
+
+      - name: Build
+        run: make clean build/pam_wsl_hello.so
+
+      - uses: actions/upload-artifact@v4
+        name: Upload artifact
+        with:
+          name: "PAM module AArch64"
+          path: build/pam_wsl_hello.so
+          if-no-files-found: error
+
+  build-windows-binary-aarch64:
+    name: "Build Windows binary (AArch64)"
+
+    runs-on: windows-11-arm
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Enable Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: make clean build/WindowsHelloBridge.exe
+
+      - uses: actions/upload-artifact@v4
+        name: Upload artifacts
+        with:
+          name: "Windows Binary AArch64"
+          path: build/WindowsHelloBridge.exe
+          if-no-files-found: error
+
   release:
     name: "Release"
 
     runs-on: ubuntu-latest
 
-    needs: [build-pam-module, build-windows-binary]
+    needs: [build-pam-module, build-windows-binary, build-pam-module-aarch64, build-windows-binary-aarch64]
 
     steps:
       - uses: actions/checkout@v3
@@ -106,6 +157,16 @@ jobs:
           name: "PAM module"
           path: build
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: "Windows Binary AArch64"
+          path: build-aarch64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: "PAM module AArch64"
+          path: build-aarch64
+
       - name: Conventional Changelog Action
         if: ${{ github.event.inputs.should_publish == 'yes' }}
         id: changelog
@@ -119,13 +180,17 @@ jobs:
           git-user-email: "41898282+github-actions[bot]@users.noreply.github.com"
           release-count: "0"
 
-      - name: Create Release asset
+      - name: Create Release assets
         id: create_asset
-        env:
-          release_name: release
         run: |
-          make -d release RELEASE="$release_name"
-          echo "release_asset=$release_name.tar.gz" >> $GITHUB_OUTPUT
+          make -d release RELEASE="release"
+          echo "release_asset=release.tar.gz" >> $GITHUB_OUTPUT
+          mkdir -p release-aarch64/build
+          cp build-aarch64/pam_wsl_hello.so release-aarch64/build/
+          cp build-aarch64/WindowsHelloBridge.exe release-aarch64/build/
+          cp install.sh pam-config release-aarch64/
+          tar cvzf release-aarch64.tar.gz release-aarch64
+          echo "release_asset_aarch64=release-aarch64.tar.gz" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         if: ${{ github.event.inputs.should_publish != 'yes' }}
@@ -133,6 +198,14 @@ jobs:
         with:
           name: ${{ steps.create_asset.outputs.release_asset }}
           path: ${{ steps.create_asset.outputs.release_asset }}
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ github.event.inputs.should_publish != 'yes' }}
+        name: Upload the AArch64 release asset (CI)
+        with:
+          name: ${{ steps.create_asset.outputs.release_asset_aarch64 }}
+          path: ${{ steps.create_asset.outputs.release_asset_aarch64 }}
           if-no-files-found: error
 
       - name: Create Release
@@ -156,4 +229,16 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ steps.create_asset.outputs.release_asset }}
           asset_name: ${{ steps.create_asset.outputs.release_asset }}
+          asset_content_type: application/gzip
+
+      - name: Upload Release Asset AArch64
+        if: ${{ github.event.inputs.should_publish == 'yes' }}
+        id: upload-release-asset-aarch64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.create_asset.outputs.release_asset_aarch64 }}
+          asset_name: ${{ steps.create_asset.outputs.release_asset_aarch64 }}
           asset_content_type: application/gzip
