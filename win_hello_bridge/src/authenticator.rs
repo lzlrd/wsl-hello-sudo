@@ -3,16 +3,14 @@ use std::sync::mpsc;
 use std::time::Duration;
 use windows::{
     Security::{Credentials::KeyCredentialManager, Cryptography::CryptographicBuffer},
-    Win32::{
-        Foundation::PWSTR,
-        UI::WindowsAndMessaging::{FindWindowW, SetForegroundWindow},
-    },
+    Win32::UI::WindowsAndMessaging::{FindWindowW, SetForegroundWindow},
     UI::Popups::MessageDialog,
+    core::{HSTRING, PCWSTR},
 };
 
 pub(crate) fn verify_user(key_name: &str, data_to_sign: &[u8]) -> Result<Vec<u8>, FailureReason> {
     if !KeyCredentialManager::IsSupportedAsync()?.get()? {
-        let _ = MessageDialog::Create("Windows Hello not supported")?
+        let _ = MessageDialog::Create(&HSTRING::from("Windows Hello not supported"))?
             .ShowAsync()?
             .get();
 
@@ -20,7 +18,7 @@ pub(crate) fn verify_user(key_name: &str, data_to_sign: &[u8]) -> Result<Vec<u8>
     }
 
     let key = {
-        let result = KeyCredentialManager::OpenAsync(key_name)?.get()?;
+        let result = KeyCredentialManager::OpenAsync(&HSTRING::from(key_name))?.get()?;
         FailureReason::from_credential_status(result.Status()?, key_name)?;
         result.Credential()?
     };
@@ -37,7 +35,7 @@ pub(crate) fn verify_user(key_name: &str, data_to_sign: &[u8]) -> Result<Vec<u8>
 
     let buffer = result.Result()?;
     let mut out = windows::core::Array::<u8>::with_len(buffer.Length().unwrap() as usize);
-    CryptographicBuffer::CopyToByteArray(buffer, &mut out)?;
+    CryptographicBuffer::CopyToByteArray(&buffer, &mut out)?;
 
     Ok(out.to_vec())
 }
@@ -47,10 +45,10 @@ fn focus_hello_window() -> mpsc::SyncSender<()> {
 
     std::thread::spawn(move || {
         let hwnd = loop {
-            let hwnd =
-                unsafe { FindWindowW("Credential Dialog Xaml Host", PWSTR(core::ptr::null_mut())) };
+            let class_name = HSTRING::from("Credential Dialog Xaml Host");
+            let hwnd = unsafe { FindWindowW(&class_name, PCWSTR::null()) };
 
-            if let Ok(hwnd) = hwnd.ok() {
+            if hwnd.0 != 0 {
                 break hwnd;
             }
 

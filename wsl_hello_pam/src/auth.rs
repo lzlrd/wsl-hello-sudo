@@ -41,7 +41,7 @@ pub fn pam_sm_authenticate(
     })
 }
 
-fn get_user(pamh: *mut pam_handle_t, prompt: Option<&str>) -> Result<Cow<str>, i32> {
+fn get_user(pamh: *mut pam_handle_t, prompt: Option<&str>) -> Result<Cow<'_, str>, i32> {
     let mut c_user: *const c_char = ptr::null();
     let tmp_prompt_str: CString;
     let c_prompt = match prompt {
